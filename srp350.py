@@ -66,16 +66,16 @@ class SRP350(object):
         self.data = []
 
     def send(self):
-        # Sends the current buffer (self.data) and clears it
+        """Sends the current buffer (self.data) and clears it"""
         os.write(self.device, bytearray(self.data))
         self.data = []
 
     def close(self):
-        # Closes connection to the device
+        """Closes connection to the device"""
         os.close(self.device)
 
     def _handle_payload(self, payload):
-        # Handles the given payload
+        """Handles the given payload"""
         print(payload)
         self.data.extend(payload)
         return payload
