@@ -22,6 +22,7 @@ class Printer(object):
         # Handles the given payload
         print(payload)
         self.data.extend(payload)
+        return payload
 
     def println(self, text, encoding="ASCII"):
         return self._handle_payload(list(text.encode(encoding)) + [0x0A])
@@ -151,6 +152,7 @@ class Printer(object):
         """ESC *  m  nL  nH  d1...dk
         Select bit-image mode.
         Selects a bit-image mode using m for the number of dots specified by nL and nH, as follows:
+        
         | m  | mode                 | v dots | v dot densitiy | h dot density | h num of data       |
         |----|----------------------|--------|----------------|---------------|---------------------|
         |  0 | 8 dot single density |      8 | 60 DPI         | 90 DPI        | nL + nH x 256       |
@@ -167,11 +169,12 @@ class Printer(object):
         """ESC - n
         Turn underline mode on/off.
         Turns underline mode on or off, based on the following values of n:
+
         |   n | dec | function     |
         |-----|-----|--------------|
         | '0' |  48 | turns off    |
         | '1' |  49 | 1 dot thick  |
-        | '2' |  50 | 2 dots thick | """
+        | '2' |  50 | 2 dots thick |"""
         payload = [0x1B, 0x2D, n]
         return self._handle_payload(payload)
     
