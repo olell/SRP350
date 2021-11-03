@@ -5,7 +5,6 @@ p = srp350.SRP350("/dev/usb/lp0")
 # not required but resets printer to default values
 p.initialize_printer()
 
-
 # print simple text
 p.println("Hello World, this is a test :)")
 
@@ -41,11 +40,17 @@ p.set_barcode_height(100)
 p.select_hri_printing_position(srp350.HRI_POS_BELOW)
 p.print_barcode(0, srp350.BARCODE_SYSTEM_EAN13, "4388860567386")
 
-p.print_and_feed_lines(5)
+p.print_and_feed_lines(3)
 
 p.print_barcode(0, srp350.BARCODE_SYSTEM_EAN8, "41057759")
 
-p.println("\nlol")
+p.inverse_printing_mode(1)
+p.select_character_size(p.gen_character_size(7, 7))
+p.println("ROFL!")
+p.select_character_font(srp350.CHAR_FONT_B)
+p.println("YOLO!")
+p.inverse_printing_mode(0)
+p.select_character_font(srp350.CHAR_FONT_A)
 
 # paper cutting
 p.cut_paper(srp350.CUT_MODE_FEED_AND_CUT, 40)
