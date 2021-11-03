@@ -458,10 +458,11 @@ class Printer(object):
     BARCODE_SYSTEM_ITF = 5
     BARCODE_SYSTEM_CODABAR = 6
     # TODO: BARCODE SYSTEMS > 65 (page 8-20)
-    def print_barcode(self, n, m, *d):
+    def print_barcode(self, n, m, data):
         # 1) GS k m dl...dk NUL 2) GS k m n dl...dk
         # Print bar code
         # Selects a bar code system and prints the bar-code, m select a bar code system
+        d = data.encode("ASCII")
         if (m <= self.BARCODE_SYSTEM_CODABAR):
             payload = [0x1D, 0x6B, m] + list(d) + [0x00]
             return self._handle_payload(payload)

@@ -5,10 +5,6 @@ p = Printer("/dev/usb/lp0")
 # not required but resets printer to default values
 p.initialize_printer()
 
-p.define_downloaded_bit_image(20, 20, [49, 50] * (20 * 20))
-p.print_downloaded_bit_image(p.BIT_IMAGE_MODE_QUADRUPLE)
-
-exit(0)
 # print simple text
 p.println("Hello World, this is a test :)")
 
@@ -42,12 +38,11 @@ p.select_print_mode(p.gen_print_mode(0, 0, 0, 0, 0))
 p.set_barcode_width(1)
 p.set_barcode_height(100)
 p.select_hri_printing_position(p.HRI_POS_BELOW)
-p.print_barcode(0, p.BARCODE_SYSTEM_EAN13, *list("4388860567386".encode("ASCII")))
+p.print_barcode(0, p.BARCODE_SYSTEM_EAN13, "4388860567386")
 
 p.print_and_feed_lines(5)
 
-p.print_barcode(0, p.BARCODE_SYSTEM_EAN8, *list("41057759".encode("ASCII")))
-p.print_barcode(0, p.BARCODE_SYSTEM_EAN8, *list("41057759".encode("ASCII")))
+p.print_barcode(0, p.BARCODE_SYSTEM_EAN8, "41057759")
 
 p.println("\nlol")
 
