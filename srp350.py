@@ -1,6 +1,62 @@
 import os
 
-class Printer(object):
+
+IMAGE_MODE_8DOT_SINGLE = 0
+IMAGE_MODE_8DOT_DOUBLE = 1
+IMAGE_MODE_24DOT_SINGLE = 32
+IMAGE_MODE_24DOT_DOUBLE = 33
+
+UNDERLINE_OFF = 48
+UNDERLINE_SINGLE_DOT = 49
+UNDERLINE_DOUBLE_DOT = 50
+
+CHAR_FONT_A = 48
+CHAR_FONT_B = 49
+
+CHARSET_USA = 0
+CHARSET_FRANCE = 1
+CHARSET_GERMANY = 2
+CHARSET_UK = 3
+CHARSET_DENMARK_1 = 4
+CHARSET_SWEDEN = 5
+CHARSET_ITALY = 6
+CHARSET_SPAIN = 7
+CHARSET_NORWAY = 8
+CHARSET_DENMARK_2 = 10
+
+PRINT_DIRECTION_LEFT_TO_RIGHT = 48
+PRINT_DIRECTION_BOTTOM_TO_TOP = 49
+PRINT_DIRECTION_RIGHT_TO_LEFT = 50
+PRINT_DIRECTION_TOP_TO_BOTTOM = 51
+
+CLOCKWISE_ROTATION_MODE_OFF = 48
+CLOCKWISE_ROTATION_MODE_ON = 49
+
+BIT_IMAGE_MODE_NORMAL = 48
+BIT_IMAGE_MODE_DOUBLE_WIDTH = 49
+BIT_IMAGE_MODE_DOUBLE_HEIGHT = 50
+BIT_IMAGE_MODE_QUADRUPLE = 51
+
+HRI_POS_NOT_PRINTED = 48
+HRI_POS_ABOVE = 49
+HRI_POS_BELOW = 50
+HRI_POS_ABOVE_AND_BELOW = 51
+
+CUT_MODE_DEFAULT = 49
+CUT_MODE_FEED_AND_CUT = 66
+
+HRI_FONT_A = 48
+HRI_FONT_B = 49
+
+BARCODE_SYSTEM_UPC_A = 0
+BARCODE_SYSTEM_UPC_E = 1
+BARCODE_SYSTEM_JAN13 = BARCODE_SYSTEM_EAN13 = 2
+BARCODE_SYSTEM_JAN8 = BARCODE_SYSTEM_EAN8 = 3
+BARCODE_SYSTEM_CODE39 = 4
+BARCODE_SYSTEM_ITF = 5
+BARCODE_SYSTEM_CODABAR = 6
+
+class SRP350(object):
 
     def __init__(self, port):
         self.port = port
@@ -144,10 +200,6 @@ class Printer(object):
         # TODO!
         raise NotImplementedError("This command is not implemented yet")
     
-    IMAGE_MODE_8DOT_SINGLE = 0
-    IMAGE_MODE_8DOT_DOUBLE = 1
-    IMAGE_MODE_24DOT_SINGLE = 32
-    IMAGE_MODE_24DOT_DOUBLE = 33
     def select_bit_image_mode(self, m, nL, nH, *d):
         """ESC *  m  nL  nH  d1...dk
         Select bit-image mode.
@@ -162,9 +214,6 @@ class Printer(object):
         payload = [0x1B, 0x2A, m, nL, nH] + d
         self._handle_payload(payload)
 
-    UNDERLINE_OFF = 48
-    UNDERLINE_SINGLE_DOT = 49
-    UNDERLINE_DOUBLE_DOT = 50
     def underline_mode(self, n):
         """ESC - n
         Turn underline mode on/off.
@@ -255,24 +304,12 @@ class Printer(object):
         payload = [0x1B, 0x4C]
         return self._handle_payload(payload)
 
-    CHAR_FONT_A = 48
-    CHAR_FONT_B = 49
     def select_character_font(self, n):
         """ESC M n
         Select character font"""
         payload = [0x1B, 0x4D, n]
         return self._handle_payload(payload)
     
-    CHARSET_USA = 0
-    CHARSET_FRANCE = 1
-    CHARSET_GERMANY = 2
-    CHARSET_UK = 3
-    CHARSET_DENMARK_1 = 4
-    CHARSET_SWEDEN = 5
-    CHARSET_ITALY = 6
-    CHARSET_SPAIN = 7
-    CHARSET_NORWAY = 8
-    CHARSET_DENMARK_2 = 10
     def select_international_charset(self, n):
         """ESC R n
         Select an international character set"""
@@ -286,10 +323,6 @@ class Printer(object):
         payload = [0x1B, 0x53]
         return self._handle_payload(payload)
     
-    PRINT_DIRECTION_LEFT_TO_RIGHT = 48
-    PRINT_DIRECTION_BOTTOM_TO_TOP = 49
-    PRINT_DIRECTION_RIGHT_TO_LEFT = 50
-    PRINT_DIRECTION_TOP_TO_BOTTOM = 51
     def select_print_direction(self, n):
         """ESC T n
         Select print direction in page mode
@@ -304,9 +337,7 @@ class Printer(object):
         | 3 |  51 | Top to bottom   | Upper right       |"""
         payload = [0x1B, 0x54, n]
         return self._handle_payload(payload)
-
-    CLOCKWISE_ROTATION_MODE_OFF = 48
-    CLOCKWISE_ROTATION_MODE_ON = 49
+    
     def clockwise_rotation_mode(self, n):
         """ESC V n
         Turn 90° clockwise rotation mode on/off"""
@@ -374,10 +405,6 @@ class Printer(object):
         self._handle_payload(payload)
     
     # (8-15)
-    BIT_IMAGE_MODE_NORMAL = 48
-    BIT_IMAGE_MODE_DOUBLE_WIDTH = 49
-    BIT_IMAGE_MODE_DOUBLE_HEIGHT = 50
-    BIT_IMAGE_MODE_QUADRUPLE = 51
     def print_downloaded_bit_image(self, m):
         """GS / m
         Print downloaded bit image
@@ -393,10 +420,6 @@ class Printer(object):
         payload = [0x1D, 0x42, n]
         return self._handle_payload(payload)
     
-    HRI_POS_NOT_PRINTED = 48
-    HRI_POS_ABOVE = 49
-    HRI_POS_BELOW = 50
-    HRI_POS_ABOVE_AND_BELOW = 51
     def select_hri_printing_position(self, n):
         """GS H n
         Select printing position of HRI characters"""
@@ -409,8 +432,6 @@ class Printer(object):
     # TODO GS L nL nH
     # TODO GS P x y
 
-    CUT_MODE_DEFAULT = 49
-    CUT_MODE_FEED_AND_CUT = 66
     def cut_paper(self, m, n=None):
         """1) GS V m , 2) GS V m n
         Select cut mode and cut paper
@@ -436,8 +457,6 @@ class Printer(object):
         payload = [0x1D, 0x62, n]
         return self._handle_payload(payload)
 
-    HRI_FONT_A = 48
-    HRI_FONT_B = 49
     def select_hri_font(self, n):
         """GS f n
         Select font for Human Readable Interpretation (HRI) characters."""
@@ -452,20 +471,13 @@ class Printer(object):
         payload = [0x1D, 0x68, n]
         return self._handle_payload(payload)
 
-    BARCODE_SYSTEM_UPC_A = 0
-    BARCODE_SYSTEM_UPC_E = 1
-    BARCODE_SYSTEM_JAN13 = BARCODE_SYSTEM_EAN13 = 2
-    BARCODE_SYSTEM_JAN8 = BARCODE_SYSTEM_EAN8 = 3
-    BARCODE_SYSTEM_CODE39 = 4
-    BARCODE_SYSTEM_ITF = 5
-    BARCODE_SYSTEM_CODABAR = 6
     # TODO: BARCODE SYSTEMS > 65 (page 8-20)
     def print_barcode(self, n, m, data):
         """1) GS k m dl...dk NUL 2) GS k m n dl...dk
         Print bar code
         Selects a bar code system and prints the bar-code, m select a bar code system"""
         d = data.encode("ASCII")
-        if (m <= self.BARCODE_SYSTEM_CODABAR):
+        if (m <= BARCODE_SYSTEM_CODABAR):
             payload = [0x1D, 0x6B, m] + list(d) + [0x00]
             return self._handle_payload(payload)
         else:
