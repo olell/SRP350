@@ -1,4 +1,5 @@
 import os
+from PIL import Image, ImageOps
 
 
 IMAGE_MODE_8DOT_SINGLE = 0
@@ -200,7 +201,7 @@ class SRP350(object):
         # TODO!
         raise NotImplementedError("This command is not implemented yet")
     
-    def select_bit_image_mode(self, m, nL, nH, *d):
+    def select_bit_image_mode(self, m, nL, nH, d):
         """ESC *  m  nL  nH  d1...dk
         Select bit-image mode.
         Selects a bit-image mode using m for the number of dots specified by nL and nH, as follows:
@@ -380,7 +381,17 @@ class SRP350(object):
     # (8-13)
     # TODO ESC { n
     # TODO FS p n m
-    # TODO FS q n [xL xH yLyH d1 ...dk]1 ...[xL xH yL yH d1...dk]n
+
+    def define_nv_bit_image(self, n, d):
+        """FS q n [xL xH yLyH d1 ...dk]1 ...[xL xH yL yH d1...dk]n
+        Define NV bit image
+        Define the NV bit image specified by n.
+        * n specifies the number of the defined NV bit image.
+        * xL, xH specifies (xL + xH x 256) x 8 dots in the horizontal direction for the NV bit image you are defining.
+        * yL, yH specifies (yL + yH x 256) x 8 dots in the vertical direction for the NV bit image you are defining
+        """
+        payload = [0x1C, 0x71, n] + d
+        return self._handle_payload(payload)
 
     def select_character_size(self, n):
         """GS ! n
@@ -488,7 +499,13 @@ class SRP350(object):
     # TODO GS r n
 
     # (8-21)
-    # TODO GS v 0 m xL xH yL yH d1...dk
+    def print_raster_bit_image(self, m, xL, xH, yL, yH, d):
+        """GS v 0 m xL xH yL yH d1...dk
+        Print raster bit image
+        Selects Raster bit-image mode. The value of m selects the mode, as follows:
+        """
+        payload = [0x1D, 0x76, 0x30, m, xL, xH, yL, yH] + d
+        self._handle_payload(payload)
     
     def set_barcode_width(self, n):
         """GS w n
@@ -497,8 +514,39 @@ class SRP350(object):
         # TODO
         payload = [0x1D, 0x77, n]
         self._handle_payload(payload)
-    
+
     # n generators
+
+    def generate_image_data(self, image):
+        """generates data for `print_raster_bit_image`
+        image must be a pil image object. The given image will be scaled to fit the printer
+        """
+
+        width, height = image.size
+        if (width > 504):
+            ratio = width / 504
+            new_height = height / ratio
+            image = image.resize((504, int(new_height)), Image.ANTIALIAS)
+        
+        width = 504
+        height = int(new_height)
+
+        img_original = image.convert("RGBA")
+        im = Image.new("RGB", img_original.size, (255, 255, 255))
+        im.paste(img_original, mask=img_original.split()[3])
+        # Convert down to greyscale
+        im = im.convert("L")
+        # Invert: Only works on 'L' images
+        im = ImageOps.invert(im)
+        # Pure black and white
+        im = im.convert("1")
+
+        xL = width // 8
+        yH = height // 256
+        yL = height - (yH * 256)
+        d = list(im.tobytes())
+        return [xL, 0, yL, yH, d]
+
     def gen_print_mode(self,
             char_font,
             emphasized_mode,
@@ -518,3 +566,6 @@ class SRP350(object):
 
     def gen_character_size(self, width, height):
         return (width << 4) | height
+
+    def generate_nv_image_data(self, width, height, data):
+        return [width, 0, height, 0] + data

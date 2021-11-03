@@ -1,3 +1,4 @@
+from PIL import Image
 import srp350
 
 p = srp350.SRP350("/dev/usb/lp0")
@@ -33,6 +34,9 @@ p.println("Double width mode")
 p.select_print_mode(p.gen_print_mode(0, 0, 1, 1, 0))
 p.println("Double hg+wd mode")
 p.select_print_mode(p.gen_print_mode(0, 0, 0, 0, 0))
+
+# image printing
+p.print_raster_bit_image(srp350.BIT_IMAGE_MODE_NORMAL, *p.generate_image_data(Image.open("monalisa.jpg")))
 
 # barcode priting
 p.set_barcode_width(1)
