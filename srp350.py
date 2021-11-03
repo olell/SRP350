@@ -525,11 +525,10 @@ class SRP350(object):
         width, height = image.size
         if (width > 504):
             ratio = width / 504
-            new_height = height / ratio
+            width = 504
+            new_height = int(height / ratio)
+            height = new_height
             image = image.resize((504, int(new_height)), Image.ANTIALIAS)
-        
-        width = 504
-        height = int(new_height)
 
         img_original = image.convert("RGBA")
         im = Image.new("RGB", img_original.size, (255, 255, 255))
