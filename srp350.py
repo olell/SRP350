@@ -534,7 +534,7 @@ class SRP350(object):
 
     # n generators
 
-    def generate_image_data(self, image):
+    def generate_image_data(self, image, center=True):
         """generates data for `print_raster_bit_image`
         image must be a pil image object. The given image will be scaled to fit the printer
         """
@@ -556,6 +556,19 @@ class SRP350(object):
         im = ImageOps.invert(im)
         # Pure black and white
         im = im.convert("1")
+
+        if center:
+            old_width, height = im.size
+            new_size = (504, height)
+
+            new_im = Image.new("1", new_size)
+            paste_x = int((504 - old_width) / 2)
+
+            new_im.paste(im, (paste_x, 0))
+
+            im = new_im
+
+            width = 504
 
         xL = width // 8
         yH = height // 256
