@@ -42,11 +42,11 @@ p.print_raster_bit_image(srp350.BIT_IMAGE_MODE_NORMAL, *p.generate_image_data(Im
 p.set_barcode_width(1)
 p.set_barcode_height(100)
 p.select_hri_printing_position(srp350.HRI_POS_BELOW)
-p.print_barcode(0, srp350.BARCODE_SYSTEM_EAN13, "4388860567386")
+p.print_barcode(0, srp350.BARCODE_SYSTEM_A_EAN13, "4388860567386")
 
 p.print_and_feed_lines(3)
 
-p.print_barcode(0, srp350.BARCODE_SYSTEM_EAN8, "41057759")
+p.print_barcode(0, srp350.BARCODE_SYSTEM_A_EAN8, "41057759")
 
 p.inverse_printing_mode(1)
 p.select_character_size(p.gen_character_size(7, 7))
