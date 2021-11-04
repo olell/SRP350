@@ -497,7 +497,7 @@ class SRP350(object):
         Print bar code
         Selects a bar code system and prints the bar-code, m select a bar code system"""
         d = data.encode("ASCII")
-        if (m <= BARCODE_SYSTEM_CODABAR):
+        if (m <= BARCODE_SYSTEM_A_CODABAR):
             payload = [0x1D, 0x6B, m] + list(d) + [0x00]
             return self._handle_payload(payload)
         else:
