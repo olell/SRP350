@@ -86,11 +86,19 @@ class SRP350(object):
 
     def _handle_payload(self, payload):
         """Handles the given payload"""
-        print(payload)
+        debug_str = ""
+        ll = 0
+        for d in payload:
+            debug_str += "%02x " % d
+            ll += 3
+            if (ll >= 189):
+                debug_str += "\n"
+                ll = 0
+        print(debug_str)
         self.data.extend(payload)
         return payload
 
-    def println(self, text, encoding="ASCII"):
+    def println(self, text, encoding="cp437"):
         return self._handle_payload(list(text.encode(encoding)) + [0x0A])
 
     ## commands refering to https://www.jarltech.com/ger_new/new/support/cd/srp350-esc_commands.pdf
