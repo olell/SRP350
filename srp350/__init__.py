@@ -3,6 +3,7 @@ __version__ = "0.1.0"
 __author__ = 'Ole Lange'
 
 import os
+import sys
 from PIL import Image, ImageOps
 
 
@@ -70,10 +71,15 @@ BARCODE_SYSTEM_B_CODABAR = 71
 BARCODE_SYSTEM_B_CODE93 = 72
 BARCODE_SYSTEM_B_CODE128 = 73
 
+DEBUG_MODE_OFF = 0
+DEBUG_MODE_HEXDUMP = 1
+DEBUG_MODE_VISUAL = 2
+
 class SRP350(object):
 
-    def __init__(self, port):
+    def __init__(self, port, debug_mode=DEBUG_MODE_OFF):
         self.port = port
+        self.debug_mode = debug_mode
 
         self.device = os.open(self.port, os.O_RDWR)
 
@@ -90,26 +96,31 @@ class SRP350(object):
 
     def _handle_payload(self, payload):
         """Handles the given payload"""
-        debug_str = ""
-        ll = 0
-        for d in payload:
-            if (d < 0 or d > 255):
-                debug_str += "%02x!" % d
-            else:
-                debug_str += "%02x " % d
-            ll += 3
-            if (ll >= 189):
-                debug_str += "\n"
-                ll = 0
-        print(debug_str)
+        if self.debug_mode == DEBUG_MODE_HEXDUMP:
+            debug_str = ""
+            ll = 0
+            for d in payload:
+                if (d < 0 or d > 255):
+                    debug_str += "%02x!" % d
+                else:
+                    debug_str += "%02x " % d
+                ll += 3
+                if (ll >= 189):
+                    debug_str += "\n"
+                    ll = 0
+            print(debug_str)
         self.data.extend(payload)
         return payload
 
     def print(self, text, encoding="cp437"):
+        if self.debug_mode == DEBUG_MODE_VISUAL:
+            if self._debug_underline: sys.stdout.write("\u001b[4m")
+            if self._debug_emphasize_mode: sys.stdout.write("\u001b[1m")
+            sys.stdout.write(text + "\u001b[0m")
         return self._handle_payload(list(text.encode(encoding)))
 
     def println(self, text, encoding="cp437"):
-        return self._handle_payload(list(text.encode(encoding)) + [0x0A])
+        self.print(text + "\n", encoding=encoding)
 
     ## commands refering to https://www.jarltech.com/ger_new/new/support/cd/srp350-esc_commands.pdf
 
@@ -117,6 +128,7 @@ class SRP350(object):
         """HT
         Horizontal Tab
         Moves the print position to the next horizontal tab position."""
+        if self.debug_mode == DEBUG_MODE_VISUAL: sys.stdout.write("\t")
         payload = [0x09]
         return self._handle_payload(payload)
 
@@ -124,6 +136,7 @@ class SRP350(object):
         """LF
         Print and line feed
         Prints the data in the print buffer and feeds one line based on the currentline spacing."""
+        if self.debug_mode == DEBUG_MODE_VISUAL: sys.stdout.write("\n")
         payload = [0x0A]
         return self._handle_payload(payload)
     
@@ -139,6 +152,7 @@ class SRP350(object):
         Print and carriage return
         When automatic line feed is enabled, this command functions the same as LF;when automatic line feed is
         disabled, this command is ignored."""
+        if self.debug_mode == DEBUG_MODE_VISUAL: sys.stdout.write("\r")
         payload = [0x0D]
         return self._handle_payload(payload)
     
@@ -252,6 +266,7 @@ class SRP350(object):
         | '0' |  48 | turns off    |
         | '1' |  49 | 1 dot thick  |
         | '2' |  50 | 2 dots thick |"""
+        self._debug_underline = n != UNDERLINE_OFF
         payload = [0x1B, 0x2D, n]
         return self._handle_payload(payload)
     
@@ -289,6 +304,8 @@ class SRP350(object):
         Initialize printer.
         Clears the data in the print buffer and resets the printer mode to the mode that was in effect when the power
         was turned on"""
+        self._debug_emphasize_mode = False
+        self._debug_underline = False
         payload = [0x1B, 0x40]
         return self._handle_payload(payload)
     
@@ -305,6 +322,7 @@ class SRP350(object):
         """ESC E n
         Turn emphasized mode on/off.
         Turns emphasized mode on or off.When the LSB is 0, emphasized mode is turned off."""
+        self._debug_emphasize_mode = n == 1
         payload = [0x1B, 0x45, n]
         return self._handle_payload(payload)
     
@@ -314,6 +332,7 @@ class SRP350(object):
         Turns double-strike mode on or off.
         *  When the LSB is 0, double-strike mode is turned off.
         *  When the LSB is 1, double-strike mode is turned on."""
+        self._debug_emphasize_mode = n == 1
         payload = [0x1B, 0x47, n]
         return self._handle_payload(payload)
 
@@ -398,6 +417,7 @@ class SRP350(object):
         """ESC d n
         Print and feed n lines
         Prints the data in the print buffer and feeds n lines."""
+        sys.stdout.write("\n" * n)
         payload = [0x1B, 0x64, n]
         return self._handle_payload(payload)
 
@@ -477,6 +497,7 @@ class SRP350(object):
         The value of m selects the mode.
     
         m == 66: Feeds paper (cutting position + [n x (vertical motion unit)]), and cuts the paper"""
+        if self.debug_mode == DEBUG_MODE_VISUAL: sys.stdout.write("\nCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUT\n")
         payload = [0x1D, 0x56, m]
         if n is not None: payload.append(n)
         return self._handle_payload(payload)
@@ -514,6 +535,9 @@ class SRP350(object):
         """1) GS k m dl...dk NUL 2) GS k m n dl...dk
         Print bar code
         Selects a bar code system and prints the bar-code, m select a bar code system"""
+        if self.debug_mode == DEBUG_MODE_VISUAL: 
+            sys.stdout.write("\nBARCODEBARCODEBARCODEBARCODEBARCODEBARCODE\n")
+            sys.stdout.write("\n{0}\n".format(data))
         d = data.encode("ASCII")
         if (m <= BARCODE_SYSTEM_A_CODABAR):
             payload = [0x1D, 0x6B, m] + list(d) + [0x00]
@@ -531,6 +555,8 @@ class SRP350(object):
         Print raster bit image
         Selects Raster bit-image mode. The value of m selects the mode, as follows:
         """
+        if self.debug_mode == DEBUG_MODE_VISUAL: 
+            sys.stdout.write("\n IMAGEIMAGEIMAGEIMAGEIMAGEIMAGEIMAGEIMAGE \n")
         payload = [0x1D, 0x76, 0x30, m, xL, xH, yL, yH] + d
         self._handle_payload(payload)
     
