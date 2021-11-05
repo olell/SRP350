@@ -89,7 +89,10 @@ class SRP350(object):
         debug_str = ""
         ll = 0
         for d in payload:
-            debug_str += "%02x " % d
+            if (d < 0 or d > 255):
+                debug_str += "%02x!" % d
+            else:
+                debug_str += "%02x " % d
             ll += 3
             if (ll >= 189):
                 debug_str += "\n"
@@ -97,6 +100,9 @@ class SRP350(object):
         print(debug_str)
         self.data.extend(payload)
         return payload
+
+    def print(self, text, encoding="cp437"):
+        return self._handle_payload(list(text.encode(encoding)))
 
     def println(self, text, encoding="cp437"):
         return self._handle_payload(list(text.encode(encoding)) + [0x0A])
@@ -540,12 +546,12 @@ class SRP350(object):
         """
 
         width, height = image.size
-        if (width > 504):
-            ratio = width / 504
-            width = 504
+        if (width > 512):
+            ratio = width / 512
+            width = 512
             new_height = int(height / ratio)
             height = new_height
-            image = image.resize((504, int(new_height)), Image.ANTIALIAS)
+            image = image.resize((512, int(new_height)), Image.ANTIALIAS)
 
         img_original = image.convert("RGBA")
         im = Image.new("RGB", img_original.size, (255, 255, 255))
@@ -557,18 +563,18 @@ class SRP350(object):
         # Pure black and white
         im = im.convert("1")
 
-        if center:
+        if center and width < 512:
             old_width, height = im.size
-            new_size = (504, height)
+            new_size = (512, height)
 
             new_im = Image.new("1", new_size)
-            paste_x = int((504 - old_width) / 2)
+            paste_x = int((512 - old_width) / 2)
 
             new_im.paste(im, (paste_x, 0))
 
             im = new_im
 
-            width = 504
+            width = 512
 
         xL = width // 8
         yH = height // 256
