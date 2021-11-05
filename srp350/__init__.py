@@ -1,3 +1,7 @@
+
+__version__ = "0.1.0"
+__author__ = 'Ole Lange'
+
 import os
 from PIL import Image, ImageOps
 
