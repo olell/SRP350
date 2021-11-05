@@ -4,7 +4,11 @@ printer = srp350.SRP350("/dev/usb/lp0")
 printer.initialize_printer()
 
 printer.emphasize_mode(1)
-printer.println("Codepage dump using srp350.py\n")
+printer.underline_mode(srp350.UNDERLINE_DOUBLE_DOT)
+printer.select_character_size(printer.gen_character_size(1, 1))
+printer.println("Codepage dump\n")
+printer.select_character_size(printer.gen_character_size(0, 0))
+printer.underline_mode(0)
 printer.println("  0 1 2 3 4 5 6 7 8 9 A B C D E F")
 printer.emphasize_mode(0)
 
