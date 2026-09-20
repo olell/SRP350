@@ -2,6 +2,7 @@ __version__ = "0.1.1"
 __author__ = "Ole Lange"
 
 import os
+import socket
 import sys
 
 from PIL import Image, ImageOps
@@ -76,22 +77,44 @@ DEBUG_MODE_VISUAL = 2
 
 
 class SRP350:
-    def __init__(self, port, debug_mode=DEBUG_MODE_OFF):
+    def __init__(self, device=None, debug_mode=DEBUG_MODE_OFF, ip=None, port=9100):
+        """Opens a connection to the printer.
+
+        Give `device` to write to a device file, for example /dev/usb/lp0.
+        Give `ip` (and `port`, default 9100) to write to a network printer over TCP.
+        """
+        if (device is None) == (ip is None):
+            raise ValueError("Give either device or ip, not both and not none")
+
+        self.device = device
+        self.ip = ip
         self.port = port
         self.debug_mode = debug_mode
 
-        self.device = os.open(self.port, os.O_RDWR)
+        if ip is not None:
+            self.socket = socket.create_connection((ip, port))
+            self.fd = None
+        else:
+            self.socket = None
+            self.fd = os.open(device, os.O_RDWR)
 
         self.data = []
 
     def send(self):
         """Sends the current buffer (self.data) and clears it"""
-        os.write(self.device, bytearray(self.data))
+        payload = bytearray(self.data)
+        if self.socket is not None:
+            self.socket.sendall(payload)
+        else:
+            os.write(self.fd, payload)
         self.data = []
 
     def close(self):
         """Closes connection to the device"""
-        os.close(self.device)
+        if self.socket is not None:
+            self.socket.close()
+        else:
+            os.close(self.fd)
 
     def _handle_payload(self, payload):
         """Handles the given payload"""
@@ -586,7 +609,7 @@ class SRP350:
             width = 512
             new_height = int(height / ratio)
             height = new_height
-            image = image.resize((512, int(new_height)), Image.ANTIALIAS)
+            image = image.resize((512, int(new_height)), Image.Resampling.LANCZOS)
 
         img_original = image.convert("RGBA")
         im = Image.new("RGB", img_original.size, (255, 255, 255))
