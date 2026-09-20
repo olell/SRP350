@@ -2,14 +2,15 @@ from setuptools import setup
 
 setup(
     name='srp350',
-    version='0.1.0',    
+    version='0.2.0',
     description='Bixolon SRP350 python driver',
     url='https://github.com/olell/SRP350',
     author='Ole Lange',
     author_email='srp350py@olel.de',
     license='Unlicense/Public Domain',
     packages=['srp350'],
-    install_requires=['pillow'],
+    install_requires=['pillow>=9.1'],
+    python_requires='>=3.8',
 
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',

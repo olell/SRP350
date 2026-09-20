@@ -1,7 +1,8 @@
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 __author__ = "Ole Lange"
 
 import os
+import select
 import socket
 import sys
 
@@ -75,13 +76,53 @@ DEBUG_MODE_OFF = 0
 DEBUG_MODE_HEXDUMP = 1
 DEBUG_MODE_VISUAL = 2
 
+ALIGN_LEFT = 0
+ALIGN_CENTER = 1
+ALIGN_RIGHT = 2
+
+CODEPAGE_PC437 = 0
+CODEPAGE_KATAKANA = 1
+CODEPAGE_PC850 = 2
+CODEPAGE_PC860 = 3
+CODEPAGE_PC863 = 4
+CODEPAGE_PC865 = 5
+CODEPAGE_WPC1252 = 16
+CODEPAGE_PC866 = 17
+CODEPAGE_PC852 = 18
+CODEPAGE_PC858 = 19
+
+QR_MODEL_1 = 49
+QR_MODEL_2 = 50
+QR_EC_LOW = 48
+QR_EC_MEDIUM = 49
+QR_EC_QUARTILE = 50
+QR_EC_HIGH = 51
+
+STATUS_PRINTER = 1
+STATUS_OFFLINE = 2
+STATUS_ERROR = 3
+STATUS_PAPER_ROLL = 4
+
+# The print head is 512 dots wide. Font A is 12 dots per character, font B is 9.
+PRINT_WIDTH_DOTS = 512
+CHARS_PER_LINE_FONT_A = 42
+CHARS_PER_LINE_FONT_B = 56
+
 
 class SRP350:
-    def __init__(self, device=None, debug_mode=DEBUG_MODE_OFF, ip=None, port=9100):
+    def __init__(
+        self,
+        device=None,
+        debug_mode=DEBUG_MODE_OFF,
+        ip=None,
+        port=9100,
+        timeout=10.0,
+    ):
         """Opens a connection to the printer.
 
         Give `device` to write to a device file, for example /dev/usb/lp0.
         Give `ip` (and `port`, default 9100) to write to a network printer over TCP.
+        `timeout` is the socket timeout in seconds. Give None to block forever.
         """
         if (device is None) == (ip is None):
             raise ValueError("Give either device or ip, not both and not none")
@@ -90,15 +131,28 @@ class SRP350:
         self.ip = ip
         self.port = port
         self.debug_mode = debug_mode
+        self.timeout = timeout
+
+        # Visual debug mode reads these before initialize_printer() runs.
+        self._debug_emphasize_mode = False
+        self._debug_underline = False
 
         if ip is not None:
-            self.socket = socket.create_connection((ip, port))
+            self.socket = socket.create_connection((ip, port), timeout=timeout)
+            self.socket.settimeout(timeout)
             self.fd = None
         else:
             self.socket = None
             self.fd = os.open(device, os.O_RDWR)
 
         self.data = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return False
 
     def send(self):
         """Sends the current buffer (self.data) and clears it"""
@@ -115,6 +169,58 @@ class SRP350:
             self.socket.close()
         else:
             os.close(self.fd)
+
+    def read_status(self, n, timeout=1.0):
+        """Asks the printer for a status byte and reads the answer.
+
+        n selects the status, see `real_time_status_transmission`.
+        The buffer goes out first, because the printer answers in order.
+        Returns the status byte, or None if the printer stays quiet.
+        """
+        self.real_time_status_transmission(n)
+        self.send()
+
+        if self.socket is not None:
+            old_timeout = self.socket.gettimeout()
+            self.socket.settimeout(timeout)
+            try:
+                answer = self.socket.recv(1)
+            except OSError:
+                return None
+            finally:
+                self.socket.settimeout(old_timeout)
+            return answer[0] if answer else None
+
+        # os.read on a device file blocks, so wait for data first.
+        readable, _, _ = select.select([self.fd], [], [], timeout)
+        if not readable:
+            return None
+        answer = os.read(self.fd, 1)
+        return answer[0] if answer else None
+
+    def paper_status(self, timeout=1.0):
+        """Reads the paper roll sensor.
+
+        Returns a dict with `near_end` and `out_of_paper`, or None if the
+        printer does not answer.
+        """
+        status = self.read_status(STATUS_PAPER_ROLL, timeout=timeout)
+        if status is None:
+            return None
+        return {
+            "near_end": bool(status & 0b00001100),
+            "out_of_paper": bool(status & 0b01100000),
+        }
+
+    def printer_online(self, timeout=1.0):
+        """Returns True if the printer is on-line, or None if it does not answer.
+
+        The printer goes off-line when the cover is open or the paper runs out.
+        """
+        status = self.read_status(STATUS_OFFLINE, timeout=timeout)
+        if status is None:
+            return None
+        return not bool(status & 0b00001000)
 
     def _handle_payload(self, payload):
         """Handles the given payload"""
@@ -134,17 +240,18 @@ class SRP350:
         self.data.extend(payload)
         return payload
 
-    def print(self, text, encoding="cp437"):
+    def print(self, text, encoding="cp437", errors="replace"):
+        """Prints text. Characters the codepage does not hold become '?'."""
         if self.debug_mode == DEBUG_MODE_VISUAL:
             if self._debug_underline:
                 sys.stdout.write("\u001b[4m")
             if self._debug_emphasize_mode:
                 sys.stdout.write("\u001b[1m")
             sys.stdout.write(text + "\u001b[0m")
-        return self._handle_payload(list(text.encode(encoding)))
+        return self._handle_payload(list(text.encode(encoding, errors)))
 
-    def println(self, text, encoding="cp437"):
-        self.print(text + "\n", encoding=encoding)
+    def println(self, text, encoding="cp437", errors="replace"):
+        return self.print(text + "\n", encoding=encoding, errors=errors)
 
     ## commands refering to https://www.jarltech.com/ger_new/new/support/cd/srp350-esc_commands.pdf
 
@@ -432,8 +539,16 @@ class SRP350:
         payload = [0x1B, 0x5C, nL, nH]
         return self._handle_payload(payload)
 
+    def select_justification(self, n):
+        """ESC a n
+        Select justification
+        Aligns the following lines. Only works at the start of a line.
+
+        n = 0: left, n = 1: center, n = 2: right"""
+        payload = [0x1B, 0x61, n]
+        return self._handle_payload(payload)
+
     # (8-11)
-    # TODO ESC a n
     # TODO ESC c 3 n
     # TODO ESC c 4 n
 
@@ -444,13 +559,28 @@ class SRP350:
         """ESC d n
         Print and feed n lines
         Prints the data in the print buffer and feeds n lines."""
-        sys.stdout.write("\n" * n)
+        if self.debug_mode == DEBUG_MODE_VISUAL:
+            sys.stdout.write("\n" * n)
         payload = [0x1B, 0x64, n]
         return self._handle_payload(payload)
 
-    # (8-12)
-    # TODO ESC p m t1 t2
-    # TODO ESC t n
+    def open_cash_drawer(self, m=0, t1=25, t2=250):
+        """ESC p m t1 t2
+        Generate pulse
+        Sends a pulse to the drawer kick connector, m selects the pin.
+        t1 is the on time and t2 the off time, both in 2 ms steps."""
+        payload = [0x1B, 0x70, m, t1, t2]
+        return self._handle_payload(payload)
+
+    def select_character_code_table(self, n):
+        """ESC t n
+        Select character code table
+        Tells the printer which codepage the following bytes use. It must match
+        the `encoding` given to `print`, or the text prints as the wrong glyphs.
+
+        See the CODEPAGE_* constants."""
+        payload = [0x1B, 0x74, n]
+        return self._handle_payload(payload)
 
     # (8-13)
     # TODO ESC { n
@@ -547,7 +677,7 @@ class SRP350:
     def select_hri_font(self, n):
         """GS f n
         Select font for Human Readable Interpretation (HRI) characters."""
-        payload = [0x1D, 0x77, n]
+        payload = [0x1D, 0x66, n]
         return self._handle_payload(payload)
 
     def set_barcode_height(self, n):
@@ -570,9 +700,13 @@ class SRP350:
         if m <= BARCODE_SYSTEM_A_CODABAR:
             payload = [0x1D, 0x6B, m] + list(d) + [0x00]
             return self._handle_payload(payload)
-        else:
-            payload = [0x1D, 0x6B, m, n] + list(d)
-            return self._handle_payload(payload)
+
+        # System B needs the data length. Callers passed 0 and got an empty
+        # bar code, so fall back to the real length.
+        if not n:
+            n = len(d)
+        payload = [0x1D, 0x6B, m, n] + list(d)
+        return self._handle_payload(payload)
 
     # (8-20)
     # TODO GS r n
@@ -586,30 +720,66 @@ class SRP350:
         if self.debug_mode == DEBUG_MODE_VISUAL:
             sys.stdout.write("\n IMAGEIMAGEIMAGEIMAGEIMAGEIMAGEIMAGEIMAGE \n")
         payload = [0x1D, 0x76, 0x30, m, xL, xH, yL, yH] + d
-        self._handle_payload(payload)
+        return self._handle_payload(payload)
 
     def set_barcode_width(self, n):
         """GS w n
         Set bar code width
         Set the horizontal size of the bar code, n specifies the bar code width as follows:"""
-        # TODO
         payload = [0x1D, 0x77, n]
-        self._handle_payload(payload)
+        return self._handle_payload(payload)
+
+    def print_qr_code(
+        self,
+        data,
+        module_size=6,
+        error_correction=QR_EC_MEDIUM,
+        model=QR_MODEL_2,
+    ):
+        """GS ( k
+        Store a QR code and print it.
+
+        Older firmware ignores these commands. Print a rendered QR image with
+        `print_raster_bit_image` if nothing comes out.
+
+        module_size is the dot size of one QR module, 1 to 16."""
+        if isinstance(data, str):
+            d = list(data.encode("utf-8"))
+        else:
+            d = list(data)
+
+        # The store command counts the three bytes after pL pH as well.
+        length = len(d) + 3
+
+        payload = [0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, model, 0x00]
+        payload += [0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, module_size]
+        payload += [0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, error_correction]
+        payload += [
+            0x1D,
+            0x28,
+            0x6B,
+            length % 256,
+            length // 256,
+            0x31,
+            0x50,
+            0x30,
+        ] + d
+        payload += [0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]
+        return self._handle_payload(payload)
 
     # n generators
 
-    def generate_image_data(self, image, center=True):
+    def generate_image_data(self, image, center=True, max_width=PRINT_WIDTH_DOTS):
         """generates data for `print_raster_bit_image`
         image must be a pil image object. The given image will be scaled to fit the printer
         """
 
         width, height = image.size
-        if width > 512:
-            ratio = width / 512
-            width = 512
-            new_height = int(height / ratio)
-            height = new_height
-            image = image.resize((512, int(new_height)), Image.Resampling.LANCZOS)
+        if width > max_width:
+            ratio = width / max_width
+            width = max_width
+            height = int(height / ratio)
+            image = image.resize((width, height), Image.Resampling.LANCZOS)
 
         img_original = image.convert("RGBA")
         im = Image.new("RGB", img_original.size, (255, 255, 255))
@@ -621,24 +791,21 @@ class SRP350:
         # Pure black and white
         im = im.convert("1")
 
-        if center and width < 512:
-            old_width, height = im.size
-            new_size = (512, height)
-
-            new_im = Image.new("1", new_size)
-            paste_x = int((512 - old_width) / 2)
-
-            new_im.paste(im, (paste_x, 0))
-
+        if center and width < max_width:
+            new_im = Image.new("1", (max_width, height))
+            new_im.paste(im, ((max_width - width) // 2, 0))
             im = new_im
+            width = max_width
 
-            width = 512
-
-        xL = width // 8
+        # Pillow pads every row to a full byte, so the command must use the
+        # padded width. A width that is not a multiple of 8 skewed the image.
+        row_bytes = (width + 7) // 8
+        xL = row_bytes % 256
+        xH = row_bytes // 256
         yH = height // 256
         yL = height - (yH * 256)
         d = list(im.tobytes())
-        return [xL, 0, yL, yH, d]
+        return [xL, xH, yL, yH, d]
 
     def gen_print_mode(
         self,
