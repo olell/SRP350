@@ -1,11 +1,10 @@
-
-__version__ = "0.1.0"
-__author__ = 'Ole Lange'
+__version__ = "0.1.1"
+__author__ = "Ole Lange"
 
 import os
 import sys
-from PIL import Image, ImageOps
 
+from PIL import Image, ImageOps
 
 IMAGE_MODE_8DOT_SINGLE = 0
 IMAGE_MODE_8DOT_DOUBLE = 1
@@ -75,8 +74,8 @@ DEBUG_MODE_OFF = 0
 DEBUG_MODE_HEXDUMP = 1
 DEBUG_MODE_VISUAL = 2
 
-class SRP350(object):
 
+class SRP350:
     def __init__(self, port, debug_mode=DEBUG_MODE_OFF):
         self.port = port
         self.debug_mode = debug_mode
@@ -100,12 +99,12 @@ class SRP350(object):
             debug_str = ""
             ll = 0
             for d in payload:
-                if (d < 0 or d > 255):
-                    debug_str += "%02x!" % d
+                if d < 0 or d > 255:
+                    debug_str += f"{d:02x}!"
                 else:
-                    debug_str += "%02x " % d
+                    debug_str += f"{d:02x} "
                 ll += 3
-                if (ll >= 189):
+                if ll >= 189:
                     debug_str += "\n"
                     ll = 0
             print(debug_str)
@@ -114,8 +113,10 @@ class SRP350(object):
 
     def print(self, text, encoding="cp437"):
         if self.debug_mode == DEBUG_MODE_VISUAL:
-            if self._debug_underline: sys.stdout.write("\u001b[4m")
-            if self._debug_emphasize_mode: sys.stdout.write("\u001b[1m")
+            if self._debug_underline:
+                sys.stdout.write("\u001b[4m")
+            if self._debug_emphasize_mode:
+                sys.stdout.write("\u001b[1m")
             sys.stdout.write(text + "\u001b[0m")
         return self._handle_payload(list(text.encode(encoding)))
 
@@ -128,7 +129,8 @@ class SRP350(object):
         """HT
         Horizontal Tab
         Moves the print position to the next horizontal tab position."""
-        if self.debug_mode == DEBUG_MODE_VISUAL: sys.stdout.write("\t")
+        if self.debug_mode == DEBUG_MODE_VISUAL:
+            sys.stdout.write("\t")
         payload = [0x09]
         return self._handle_payload(payload)
 
@@ -136,66 +138,68 @@ class SRP350(object):
         """LF
         Print and line feed
         Prints the data in the print buffer and feeds one line based on the currentline spacing."""
-        if self.debug_mode == DEBUG_MODE_VISUAL: sys.stdout.write("\n")
+        if self.debug_mode == DEBUG_MODE_VISUAL:
+            sys.stdout.write("\n")
         payload = [0x0A]
         return self._handle_payload(payload)
-    
-    def print_and_return_to_standard_mode(self): 
+
+    def print_and_return_to_standard_mode(self):
         """FF
         Print and return to standard mode in page mode
         Prints the data in the print buffer collectively and returns to standard mode."""
         payload = [0x0C]
         return self._handle_payload(payload)
-    
+
     def carriage_return(self):
         """CR
         Print and carriage return
         When automatic line feed is enabled, this command functions the same as LF;when automatic line feed is
         disabled, this command is ignored."""
-        if self.debug_mode == DEBUG_MODE_VISUAL: sys.stdout.write("\r")
+        if self.debug_mode == DEBUG_MODE_VISUAL:
+            sys.stdout.write("\r")
         payload = [0x0D]
         return self._handle_payload(payload)
-    
+
     def cancel_print_data(self):
         """CAN
         Cancel print data in page mode.
         In page mode, deletes all the print data in the current printable area."""
         payload = [0x18]
         return self._handle_payload(payload)
-    
+
     def real_time_status_transmission(self, n):
         """OLE EOT n
         Real-time status transmission
         Transmits the selected printer status specified by n in real time, according to the following parameters:
-    
+
         n = 1 : Transmit printer status.
         n = 2 : Transmit off-line status.
         n = 3 : Transmit error status.
         n = 4 : Transmit paper roll sensor status."""
         payload = [0x10, 0x04, n]
         return self._handle_payload(payload)
-    
+
     def real_time_request(self, n):
         """DLE ENQ n
         Real-time request to printer.
         Recover from an error and restart printing from the line where the error occurred
-    
+
         1 <= n <= 2"""
         payload = [0x10, 0x05, n]
         return self._handle_payload(payload)
-    
+
     def print_data_in_page_mode(self):
         """ESC FF
         Print data in page mode.
         In page mode, prints all buffered data in the printing area collectively."""
         payload = [0x1B, 0x0C]
         return self._handle_payload(payload)
-    
+
     def set_right_side_character_spacing(self, n):
         """ESC SP n
         Set right-side character spacing
         Sets the character spacing for the right side of the character to[n x horizontal or vertical motion units].
-        
+
         0 <= n <= 255"""
         payload = [0x1B, 0x20, n]
         return self._handle_payload(payload)
@@ -205,7 +209,7 @@ class SRP350(object):
         Select print modes.
         Selects print mode(s) using n as follows:
         (or generate using `gen_print_mode`)
-        
+
         | bit | on/off | function              |
         |-----|--------|-----------------------|
         |   0 | off    | Char font A (12 x 24) |
@@ -227,7 +231,7 @@ class SRP350(object):
             [(nL + nH x 256) x (vertical or horizontal motion unit)] inches."""
         payload = [0x1B, 0x24, nL, nH]
         return self._handle_payload(payload)
-    
+
     def select_cancel_user_defined_character_set(self, n):
         """ESC % n
         Selects or cancels the user-defined character set.
@@ -235,18 +239,18 @@ class SRP350(object):
         x  When the LSB of n is 1, the user-defined character set is selected."""
         payload = [0x1B, 0x25, n]
         return self._handle_payload(payload)
-    
+
     def define_user_defined_characters(self, *args):
         """ESC & y c1 c2 [x1 d1...d(y x x1)]...[xk d1 ...d(y x xk)]
         Define user-defined characters"""
         # TODO!
         raise NotImplementedError("This command is not implemented yet")
-    
+
     def select_bit_image_mode(self, m, nL, nH, d):
         """ESC *  m  nL  nH  d1...dk
         Select bit-image mode.
         Selects a bit-image mode using m for the number of dots specified by nL and nH, as follows:
-        
+
         | m  | mode                 | v dots | v dot densitiy | h dot density | h num of data       |
         |----|----------------------|--------|----------------|---------------|---------------------|
         |  0 | 8 dot single density |      8 | 60 DPI         | 90 DPI        | nL + nH x 256       |
@@ -269,13 +273,13 @@ class SRP350(object):
         self._debug_underline = n != UNDERLINE_OFF
         payload = [0x1B, 0x2D, n]
         return self._handle_payload(payload)
-    
+
     def select_default_line_spacing(self):
         """ESC 2
         Selects 1/6-inch line (approximately 4.23mm) spacing."""
         payload = [0x1B, 0x32]
         return self._handle_payload(payload)
-    
+
     def set_line_spacing(self, n):
         """ESC 3 n
         Set line spacing.
@@ -308,14 +312,14 @@ class SRP350(object):
         self._debug_underline = False
         payload = [0x1B, 0x40]
         return self._handle_payload(payload)
-    
+
     def set_horizontal_tab_position(self, *n):
         """ESC D n1...nk NUL
         Set horizontal tab positions.
         Sets horizontal tab position.
         * n specifies the column number for setting a horizontal tab position from thebeginning of the line.
         * k indicates the total number of horizontal tab positions to be set."""
-        payload = [0x1B, 0x44] + n + [0x00]
+        payload = [0x1B, 0x44, *n, 0x00]
         return self._handle_payload(payload)
 
     def emphasize_mode(self, n):
@@ -325,7 +329,7 @@ class SRP350(object):
         self._debug_emphasize_mode = n == 1
         payload = [0x1B, 0x45, n]
         return self._handle_payload(payload)
-    
+
     def double_strike_mode(self, n):
         """ESC G n
         Turn on/off double-strike mode.
@@ -343,7 +347,7 @@ class SRP350(object):
         0 <= n <= 255"""
         payload = [0x1B, 0x4A, n]
         return self._handle_payload(payload)
-    
+
     def select_page_mode(self):
         """ESC L
         Select page mode
@@ -356,7 +360,7 @@ class SRP350(object):
         Select character font"""
         payload = [0x1B, 0x4D, n]
         return self._handle_payload(payload)
-    
+
     def select_international_charset(self, n):
         """ESC R n
         Select an international character set"""
@@ -369,13 +373,13 @@ class SRP350(object):
         Switches from page mode to standard mode"""
         payload = [0x1B, 0x53]
         return self._handle_payload(payload)
-    
+
     def select_print_direction(self, n):
         """ESC T n
         Select print direction in page mode
         Selects the print direction and starting position in page mode.
         n specifies the print direction and starting position as follows:
-        
+
         | n | dec | print direction | starting position |
         |---|-----|-----------------|-------------------|
         | 0 |  48 | Left to right   | Upper left        |
@@ -384,7 +388,7 @@ class SRP350(object):
         | 3 |  51 | Top to bottom   | Upper right       |"""
         payload = [0x1B, 0x54, n]
         return self._handle_payload(payload)
-    
+
     def clockwise_rotation_mode(self, n):
         """ESC V n
         Turn 90° clockwise rotation mode on/off"""
@@ -395,9 +399,9 @@ class SRP350(object):
         """ESC W xL xH yL yH dxL dxH dyL dyH"""
         # TODO
         raise NotImplementedError("This command is not implemented yet")
-    
+
     def set_relative_print_position(self, nL, nH):
-        """ESC \ nL nH
+        r"""ESC \ nL nH
         Set relative print position
         Set the print starting position based on the current position by using the horizontal or
         vertical motion unit.
@@ -412,7 +416,7 @@ class SRP350(object):
 
     # (8-12)
     # TODO ESC c 5 n
-    
+
     def print_and_feed_lines(self, n):
         """ESC d n
         Print and feed n lines
@@ -461,7 +465,7 @@ class SRP350(object):
         0 <= d <= 255"""
         payload = [0x1D, 0x2A, x, y] + d
         self._handle_payload(payload)
-    
+
     # (8-15)
     def print_downloaded_bit_image(self, m):
         """GS / m
@@ -471,20 +475,19 @@ class SRP350(object):
         self._handle_payload(payload)
 
     # TODO GS :
-    
+
     def inverse_printing_mode(self, n):
         """GS R n (TYPO: it's GS B n)
         Turn white/black reverse printing mode on/off"""
         payload = [0x1D, 0x42, n]
         return self._handle_payload(payload)
-    
+
     def select_hri_printing_position(self, n):
         """GS H n
         Select printing position of HRI characters"""
         payload = [0x1D, 0x48, n]
         return self._handle_payload(payload)
 
-    
     # (8-16)
     # TODO GS I n
     # TODO GS L nL nH
@@ -495,11 +498,13 @@ class SRP350(object):
         Select cut mode and cut paper
         Selects a mode for cutting paper and executes paper cutting.
         The value of m selects the mode.
-    
+
         m == 66: Feeds paper (cutting position + [n x (vertical motion unit)]), and cuts the paper"""
-        if self.debug_mode == DEBUG_MODE_VISUAL: sys.stdout.write("\nCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUT\n")
+        if self.debug_mode == DEBUG_MODE_VISUAL:
+            sys.stdout.write("\nCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUTCUT\n")
         payload = [0x1D, 0x56, m]
-        if n is not None: payload.append(n)
+        if n is not None:
+            payload.append(n)
         return self._handle_payload(payload)
 
     # (8-17)
@@ -521,7 +526,7 @@ class SRP350(object):
         Select font for Human Readable Interpretation (HRI) characters."""
         payload = [0x1D, 0x77, n]
         return self._handle_payload(payload)
-    
+
     def set_barcode_height(self, n):
         """GS h n
         Set barcode height
@@ -535,11 +540,11 @@ class SRP350(object):
         """1) GS k m dl...dk NUL 2) GS k m n dl...dk
         Print bar code
         Selects a bar code system and prints the bar-code, m select a bar code system"""
-        if self.debug_mode == DEBUG_MODE_VISUAL: 
+        if self.debug_mode == DEBUG_MODE_VISUAL:
             sys.stdout.write("\nBARCODEBARCODEBARCODEBARCODEBARCODEBARCODE\n")
-            sys.stdout.write("\n{0}\n".format(data))
+            sys.stdout.write(f"\n{data}\n")
         d = data.encode("ASCII")
-        if (m <= BARCODE_SYSTEM_A_CODABAR):
+        if m <= BARCODE_SYSTEM_A_CODABAR:
             payload = [0x1D, 0x6B, m] + list(d) + [0x00]
             return self._handle_payload(payload)
         else:
@@ -555,11 +560,11 @@ class SRP350(object):
         Print raster bit image
         Selects Raster bit-image mode. The value of m selects the mode, as follows:
         """
-        if self.debug_mode == DEBUG_MODE_VISUAL: 
+        if self.debug_mode == DEBUG_MODE_VISUAL:
             sys.stdout.write("\n IMAGEIMAGEIMAGEIMAGEIMAGEIMAGEIMAGEIMAGE \n")
         payload = [0x1D, 0x76, 0x30, m, xL, xH, yL, yH] + d
         self._handle_payload(payload)
-    
+
     def set_barcode_width(self, n):
         """GS w n
         Set bar code width
@@ -576,7 +581,7 @@ class SRP350(object):
         """
 
         width, height = image.size
-        if (width > 512):
+        if width > 512:
             ratio = width / 512
             width = 512
             new_height = int(height / ratio)
@@ -612,16 +617,17 @@ class SRP350(object):
         d = list(im.tobytes())
         return [xL, 0, yL, yH, d]
 
-    def gen_print_mode(self,
-            char_font,
-            emphasized_mode,
-            double_height_mode,
-            double_width_mode,
-            underline_mode
-        ):
-        
+    def gen_print_mode(
+        self,
+        char_font,
+        emphasized_mode,
+        double_height_mode,
+        double_width_mode,
+        underline_mode,
+    ):
+
         n = 0
-        n |= (1 if char_font else 0)
+        n |= 1 if char_font else 0
         n |= (1 if emphasized_mode else 0) << 3
         n |= (1 if double_height_mode else 0) << 4
         n |= (1 if double_width_mode else 0) << 5
